@@ -1,0 +1,20 @@
+{
+  "name": "nemotron-workstation-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private, responsive Nemotron AI workstation",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "express-rate-limit": "^7.5.0",
+    "dotenv": "^16.4.7"
+  }
+}
