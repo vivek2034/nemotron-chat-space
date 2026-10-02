@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090d14">
+  <meta name="description" content="Your private Nemotron AI workstation">
+  <title>Nemotron Workstation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <div id="loginScreen" class="login-screen hidden">
+    <div class="login-card">
+      <div class="brand-mark large">N</div><p class="eyebrow">PRIVATE WORKSPACE</p>
+      <h1>Welcome back.</h1><p class="muted">Sign in to your personal AI workstation.</p>
+      <form id="loginForm"><input id="loginPassword" type="password" placeholder="Workspace password" autocomplete="current-password" required><button class="primary wide">Unlock workspace <span>↗</span></button></form>
+      <p id="loginError" class="error-text"></p>
+    </div>
+  </div>
+  <div id="app" class="app-shell hidden">
+    <aside id="sidebar" class="sidebar">
+      <div class="side-top">
+        <a class="brand" href="#"><span class="brand-mark">N</span><span><b>NEMOTRON</b><small>WORKSTATION <i>2.1</i></small></span></a>
+        <button id="closeSidebar" class="icon-btn mobile-only" aria-label="Close menu">×</button>
+      </div>
+      <button id="newChat" class="new-chat"><span>＋</span> New conversation <kbd>⌘ K</kbd></button>
+      <div class="side-label">WORKSPACE</div>
+      <button class="side-link active" id="allChats"><span>◫</span> All conversations</button>
+      <button class="side-link" id="searchToggle"><span>⌕</span> Search history <kbd>/</kbd></button>
+      <div class="side-label history-label">RECENT CONVERSATIONS <button id="sortHistory" title="Sort conversations">↕</button></div>
+      <input id="historySearch" class="history-search hidden" placeholder="Filter conversations…">
+      <div id="historyList" class="history-list"></div>
+      <div class="side-bottom">
+        <div class="connection"><span class="status-dot"></span><span><b id="connectionText">Connecting</b><small id="modelShort">NVIDIA API</small></span></div>
+        <button id="settingsOpen" class="profile-button"><span class="avatar">V</span><span><b>Personal workspace</b><small>Settings & preferences</small></span><span class="more">···</span></button>
+      </div>
+    </aside>
+    <main class="main-panel">
+      <header class="topbar">
+        <div class="top-left"><button id="menuToggle" class="icon-btn mobile-only">☰</button><div><div class="crumb">WORKSPACE <span>/</span> <b id="crumbTitle">New conversation</b></div><div class="model-line"><span class="pulse"></span><span id="modelName">Nemotron 3 Ultra</span><span class="model-tag">NVIDIA</span></div></div></div>
+        <div class="top-actions"><span class="token-count" id="tokenCount">0 tokens</span><button id="exportChat" class="subtle-btn" title="Export conversation">⇩ <span>Export</span></button><button id="settingsTop" class="icon-btn" title="Settings">⚙</button><button id="logoutBtn" class="icon-btn" title="Lock workspace">↪</button></div>
+      </header>
+      <section id="chatScroll" class="chat-scroll">
+        <div id="welcome" class="welcome">
+          <div class="welcome-orb"><div class="orb-core">N</div><span class="orb-ring ring-one"></span><span class="orb-ring ring-two"></span><span class="orb-ring ring-three"></span></div>
+          <p class="eyebrow">YOUR AI WORKSPACE</p><h1>Think beyond<br><em>the ordinary.</em></h1>
+          <p class="welcome-copy">A quiet space for big ideas, complex problems<br class="desktop-break"> and everything you want to build.</p>
+          <div class="prompt-grid">
+            <button class="prompt-card" data-prompt="Explain this concept simply with a practical example."><span class="prompt-icon">⌁</span><b>Explain a concept</b><small>Make complex ideas clear</small><span class="card-arrow">↗</span></button>
+            <button class="prompt-card" data-prompt="Help me build a clean, production-ready solution for this problem."><span class="prompt-icon">⌘</span><b>Build something</b><small>Turn ideas into working code</small><span class="card-arrow">↗</span></button>
+            <button class="prompt-card" data-prompt="Find the bug, explain why it happens, and give me the corrected code."><span class="prompt-icon">⌬</span><b>Debug & improve</b><small>Trace issues with me</small><span class="card-arrow">↗</span></button>
+            <button class="prompt-card" data-prompt="Give me 5 creative but practical ideas I can actually build."><span class="prompt-icon">✳</span><b>Explore ideas</b><small>Start with a fresh perspective</small><span class="card-arrow">↗</span></button>
+          </div>
+        </div>
+        <div id="messages" class="messages"></div>
+        <div id="bottomAnchor"></div>
+      </section>
+      <footer class="composer-area">
+        <div class="composer-wrap">
+          <div class="composer-tools"><span class="composer-context"><span class="spark">✳</span> <b>Nemotron</b> <span>·</span> Ready to assist</span><span class="composer-hint">Private · Encrypted in transit</span></div>
+          <div class="composer-box"><textarea id="messageInput" rows="1" placeholder="Message Nemotron…" aria-label="Message Nemotron"></textarea><div class="composer-actions"><button id="stopBtn" class="stop-btn hidden" title="Stop generating">■</button><button id="sendBtn" class="send-btn" title="Send message">↑</button></div></div>
+          <div class="composer-bottom"><span><kbd>Enter</kbd> to send <span class="hint-divider">·</span> <kbd>Shift + Enter</kbd> for new line</span><span id="statusText">AI can make mistakes. Verify important information.</span></div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <div id="settingsOverlay" class="overlay hidden">
+    <section class="settings-panel">
+      <div class="panel-head"><div><p class="eyebrow">PREFERENCES</p><h2>Workspace settings</h2></div><button class="icon-btn" id="settingsClose">×</button></div>
+      <div class="settings-content">
+        <div class="setting-section"><h3>Appearance</h3><label class="setting-row"><span><b>Theme</b><small>Choose your workspace appearance</small></span><select id="themeSetting"><option value="dark">Midnight</option><option value="light">Light</option></select></label><label class="setting-row"><span><b>Interface motion</b><small>Reduce animation and transitions</small></span><input type="checkbox" id="motionSetting"></label><label class="setting-row"><span><b>Auto-scroll</b><small>Follow the latest response</small></span><input type="checkbox" id="autoScrollSetting" checked></label></div>
+        <div class="setting-section"><h3>Model parameters</h3><label class="range-row"><span><b>Temperature</b><output id="temperatureValue">0.60</output></span><input id="temperatureSetting" type="range" min="0" max="2" step=".05" value=".6"></label><label class="range-row"><span><b>Top-p</b><output id="topPValue">0.95</output></span><input id="topPSetting" type="range" min="0" max="1" step=".01" value=".95"></label><label class="setting-row"><span><b>Maximum tokens</b><small>Maximum response length</small></span><input id="maxTokensSetting" class="number-input" type="number" min="256" max="32768" step="256" value="8192"></label><label class="setting-row vertical"><span><b>System prompt</b><small>Instructions applied to every conversation</small></span><textarea id="systemPromptSetting" rows="5"></textarea></label><label class="setting-row"><span><b>Enable reasoning</b><small>Request model thinking when supported</small></span><input type="checkbox" id="thinkingSetting" checked></label></div>
+        <div class="setting-section"><h3>Workspace data</h3><p class="muted small">Conversations and preferences are stored on your server. Keep your hosting disk persistent to retain them across deployments.</p><button id="importButton" class="subtle-btn wide">＋ Import conversation JSON</button><input id="importFile" type="file" accept="application/json" hidden></div>
+      </div>
+      <div class="panel-foot"><button id="settingsCancel" class="subtle-btn">Cancel</button><button id="settingsSave" class="primary">Save preferences</button></div>
+    </section>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
