@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { MongoClient } = require('mongodb');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -16,17 +17,53 @@ const SECRET = process.env.SESSION_SECRET || 'development-only-change-this-secre
 const MODEL = process.env.MODEL_ID || 'nvidia/nemotron-3-ultra-550b-a55b';
 const STORE_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const STORE_FILE = path.join(STORE_DIR, 'store.json');
+const MONGODB_URI = process.env.MONGODB_URI;
+const DB_NAME = process.env.MONGODB_DB || 'nemotron_workstation';
+const COLLECTION_NAME = process.env.MONGODB_COLLECTION || 'workspaces';
+const WORKSPACE_ID = 'default';
+let mongoClient = null;
+let workspaceCollection = null;
 
 if (!APP_PASSWORD) console.warn('WARNING: APP_PASSWORD is not set. Login is disabled only for local development.');
 if (!API_KEY) console.warn('WARNING: NVIDIA_API_KEY is not set. Add it in your environment before chatting.');
 
 fs.mkdirSync(STORE_DIR, { recursive: true });
-function loadStore() {
+function loadFileStore() {
   try { return JSON.parse(fs.readFileSync(STORE_FILE, 'utf8')); }
   catch { return { sessions: [], settings: {} }; }
 }
-let store = loadStore();
-function saveStore() {
+let store = { sessions: [], settings: {} };
+async function connectDatabase() {
+  if (!MONGODB_URI) {
+    store = loadFileStore();
+    console.warn('MONGODB_URI is not set; using local JSON storage.');
+    return;
+  }
+  mongoClient = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
+  await mongoClient.connect();
+  const db = mongoClient.db(DB_NAME);
+  workspaceCollection = db.collection(COLLECTION_NAME);
+  await workspaceCollection.createIndex({ updatedAt: -1 });
+  let saved = await workspaceCollection.findOne({ _id: WORKSPACE_ID });
+  if (!saved) {
+    const legacy = loadFileStore();
+    await workspaceCollection.insertOne({ _id: WORKSPACE_ID, ...legacy, updatedAt: new Date() });
+    saved = await workspaceCollection.findOne({ _id: WORKSPACE_ID });
+    if (legacy.sessions?.length) console.log('Migrated existing JSON conversations into MongoDB.');
+  }
+  store = { sessions: saved.sessions || [], settings: saved.settings || {} };
+  console.log(`MongoDB connected: ${DB_NAME}.${COLLECTION_NAME}`);
+}
+async function saveStore(nextStore) {
+  store = nextStore;
+  if (workspaceCollection) {
+    await workspaceCollection.updateOne(
+      { _id: WORKSPACE_ID },
+      { $set: { sessions: store.sessions, settings: store.settings, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    return;
+  }
   const tmp = STORE_FILE + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(store, null, 2));
   fs.renameSync(tmp, STORE_FILE);
@@ -64,7 +101,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '2mb' }));
 app.use('/api/login', rateLimit({ windowMs: 15 * 60 * 1000, limit: 12, standardHeaders: true, legacyHeaders: false }));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, model: MODEL, configured: Boolean(API_KEY) }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, model: MODEL, configured: Boolean(API_KEY), database: workspaceCollection ? 'mongodb' : 'json' }));
 app.get('/api/auth/status', (req, res) => {
   const token = parseCookies(req.headers.cookie || '').nw_auth;
   res.json({ passwordRequired: Boolean(APP_PASSWORD), authenticated: !APP_PASSWORD || validToken(token) });
@@ -84,15 +121,27 @@ app.post('/api/logout', (_req, res) => {
 });
 
 app.use('/api', requireAuth);
-app.get('/api/bootstrap', (_req, res) => res.json({ sessions: store.sessions, settings: store.settings, model: MODEL }));
-app.put('/api/store', (req, res) => {
+app.get('/api/bootstrap', async (_req, res) => {
+  try {
+    if (workspaceCollection) {
+      const saved = await workspaceCollection.findOne({ _id: WORKSPACE_ID });
+      if (saved) store = { sessions: saved.sessions || [], settings: saved.settings || {} };
+    }
+    res.json({ sessions: store.sessions, settings: store.settings, model: MODEL });
+  } catch (err) { res.status(503).json({ error: 'Could not load workspace from database.' }); }
+});
+app.put('/api/store', async (req, res) => {
   if (!req.body || !Array.isArray(req.body.sessions) || typeof req.body.settings !== 'object') {
     return res.status(400).json({ error: 'Invalid data.' });
   }
   if (JSON.stringify(req.body).length > 8_000_000) return res.status(413).json({ error: 'Workspace is too large.' });
-  store = { sessions: req.body.sessions.slice(0, 300), settings: req.body.settings };
-  saveStore();
-  res.json({ ok: true });
+  try {
+    await saveStore({ sessions: req.body.sessions.slice(0, 300), settings: req.body.settings });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Workspace save failed:', err);
+    res.status(503).json({ error: 'Could not save workspace to database.' });
+  }
 });
 
 app.post('/api/chat', async (req, res) => {
@@ -161,4 +210,20 @@ app.post('/api/chat', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.listen(PORT, () => console.log(`Nemotron Workstation listening on ${PORT}`));
+async function start() {
+  try {
+    await connectDatabase();
+    const server = app.listen(PORT, () => console.log(`Nemotron Workstation listening on ${PORT}`));
+    const shutdown = async () => {
+      server.close();
+      if (mongoClient) await mongoClient.close();
+      process.exit(0);
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  } catch (err) {
+    console.error('Database connection failed:', err.message);
+    process.exit(1);
+  }
+}
+start();
