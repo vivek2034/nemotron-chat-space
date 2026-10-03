@@ -21,3 +21,7 @@ services:
         generateValue: true
       - key: MODEL_ID
         value: nvidia/nemotron-3-ultra-550b-a55b
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: nemotron_workstation
